@@ -1,0 +1,9 @@
+org/wso2/carbon/common/policy/migration/client/internal/APIMMigrationServiceComponent.class
+org/wso2/carbon/common/policy/migration/util/ExtendedAPIMConfigServiceImpl.class
+org/wso2/carbon/common/policy/migration/APIMigrationException.class
+org/wso2/carbon/common/policy/migration/util/RegDBUtil.class
+org/wso2/carbon/common/policy/migration/client/internal/ServiceHolder.class
+org/wso2/carbon/common/policy/migration/util/APIUtil.class
+org/wso2/carbon/common/policy/migration/APIMCommonPolicyMigrationClient.class
+org/wso2/carbon/common/policy/migration/migrator/Utility.class
+org/wso2/carbon/common/policy/migration/util/UserDBUtil.class
