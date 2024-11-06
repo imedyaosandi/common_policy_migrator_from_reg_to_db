@@ -36,8 +36,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.*;
 
-public class APIMCommonPolicyMigrationClient implements ServerStartupObserver{
+public class APIMCommonPolicyMigrationClient implements ServerStartupObserver {
     private static final Log log = LogFactory.getLog(APIMCommonPolicyMigrationClient.class);
     private TenantManager tenantManager;
     protected Registry registry;
@@ -59,7 +60,7 @@ public class APIMCommonPolicyMigrationClient implements ServerStartupObserver{
         executePolicyMigration();
     }
 
-    public void executePolicyMigration(){
+    public void executePolicyMigration() {
         tenantManager = ServiceHolder.getRealmService().getTenantManager();
         String inSequencePath = org.wso2.carbon.apimgt.impl.APIConstants.API_CUSTOM_SEQUENCE_LOCATION
                 + RegistryConstants.PATH_SEPARATOR
@@ -71,34 +72,34 @@ public class APIMCommonPolicyMigrationClient implements ServerStartupObserver{
                 + RegistryConstants.PATH_SEPARATOR
                 + org.wso2.carbon.apimgt.impl.APIConstants.API_CUSTOM_SEQUENCE_TYPE_FAULT;
         log.info("WSO2 API-M Migration Task : Starting policy migration. This will migrate the common policies added from the registry in 3.2.0 to the DB.");
-        try{
+        try {
             List<Tenant> tenants = APIUtil.getAllTenantsWithSuperTenant();
             for (Tenant tenant : tenants) {
-                try{
-                    log.info("WSO2 API-M Migration Task : Starting policy migration for tenant domain: "+ tenant.getDomain());
+                try {
+                    log.info("WSO2 API-M Migration Task : Starting policy migration for tenant domain: " + tenant.getDomain());
                     int apiTenantId = tenantManager.getTenantId(tenant.getDomain());
                     APIUtil.loadTenantRegistry(apiTenantId);
                     Utility.startTenantFlow(tenant.getDomain(), apiTenantId, MultitenantUtils
                             .getTenantAwareUsername(APIUtil.getTenantAdminUserName(tenant.getDomain())));
                     this.registry = ServiceHolder.getRegistryService().getGovernanceSystemRegistry(apiTenantId);
-                    commonPolicyMigrator(inSequencePath,tenant,APIConstants.API_CUSTOM_SEQUENCE_TYPE_IN);
-                    log.info("*************************** Completed IN flow common policy migration for tenant domain: " + tenant.getDomain()+"***************************");
-                    commonPolicyMigrator(outSequencePath,tenant,APIConstants.API_CUSTOM_SEQUENCE_TYPE_OUT);
-                    log.info("*************************** Completed OUT flow common policy migration for tenant domain: " + tenant.getDomain()+"***************************");
-                    commonPolicyMigrator(faultSequencePath,tenant,APIConstants.API_CUSTOM_SEQUENCE_TYPE_FAULT);
-                    log.info("*************************** Completed FAULT flow common policy migration for tenant domain: " + tenant.getDomain()+"***************************");
-                    log.info("*************************** Successfully Completed common policy migration for tenant domain: " + tenant.getDomain()+"***************************");
+                    commonPolicyMigrator(inSequencePath, tenant, APIConstants.API_CUSTOM_SEQUENCE_TYPE_IN);
+                    log.info("*************************** Completed IN flow common policy migration for tenant domain: " + tenant.getDomain() + "***************************");
+                    commonPolicyMigrator(outSequencePath, tenant, APIConstants.API_CUSTOM_SEQUENCE_TYPE_OUT);
+                    log.info("*************************** Completed OUT flow common policy migration for tenant domain: " + tenant.getDomain() + "***************************");
+                    commonPolicyMigrator(faultSequencePath, tenant, APIConstants.API_CUSTOM_SEQUENCE_TYPE_FAULT);
+                    log.info("*************************** Completed FAULT flow common policy migration for tenant domain: " + tenant.getDomain() + "***************************");
+                    log.info("*************************** Successfully Completed common policy migration for tenant domain: " + tenant.getDomain() + "***************************");
                 } catch (RegistryException e) {
-                log.error("WSO2 API-M Migration Task : Error while initializing the registry, tenant domain: "
-                        + tenant.getDomain(), e);
-                //isError = true;
-            } catch (APIManagementException e) {
+                    log.error("WSO2 API-M Migration Task : Error while initializing the registry, tenant domain: "
+                            + tenant.getDomain(), e);
+                    //isError = true;
+                } catch (APIManagementException e) {
                     throw new RuntimeException(e);
                 }
 
             }
 
-        }catch (UserStoreException e) {
+        } catch (UserStoreException e) {
             log.error("WSO2 API-M Migration Task : Error while retrieving the tenants", e);
         }
         log.info("*************************** Successfully Completed common policy migration for all tenants ***************************");
@@ -106,7 +107,7 @@ public class APIMCommonPolicyMigrationClient implements ServerStartupObserver{
 
     public void commonPolicyMigrator(String path, Tenant tenant, String flow) {
         org.wso2.carbon.registry.api.Collection seqCollection = null;
-        log.info("==================== Started "+ path + " common policy migration for tenant domain: "+tenant.getDomain()+" ===============");
+        log.info("==================== Started " + path + " common policy migration for tenant domain: " + tenant.getDomain() + " ===============");
         try {
             seqCollection = (org.wso2.carbon.registry.api.Collection) registry.get(path);
         } catch (ResourceNotFoundException e) {
@@ -124,33 +125,43 @@ public class APIMCommonPolicyMigrationClient implements ServerStartupObserver{
             }
             for (String childPath : childPaths) {
                 try {
-                    String fileName=childPath.substring(childPath.lastIndexOf("/")+1);
+                    String fileName = childPath.substring(childPath.lastIndexOf("/") + 1);
                     String[] policiesToSkip = {"json_to_xml_in_message.xml", "json_validator.xml", "preserve_accept_header.xml", "debug_in_flow.xml", "disable_chunking.xml", "log_in_message.xml", "regex_policy.xml", "xml_to_json_in_message.xml", "xml_validator.xml", "debug_json_fault.xml", "json_fault.xml", "apply_accept_header.xml", "debug_out_flow.xml", "disable_chunking.xml", "json_to_xml_out_message.xml", "log_out_message.xml", "xml_to_json_out_message.xml"};
 
-                    if(!Arrays.asList(policiesToSkip).contains(fileName)){
+                    if (!Arrays.asList(policiesToSkip).contains(fileName)) {
                         ApiMgtDAO apiMgtDAO = ApiMgtDAO.getInstance();
                         Set<String> existingPolicies = apiMgtDAO.getCommonOperationPolicyNames(tenant.getDomain());
-                            Resource sequence = registry.get(childPath);
-                            DocumentBuilderFactory factory = APIUtil.getSecuredDocumentBuilder();
-                            DocumentBuilder builder = factory.newDocumentBuilder();
-                            String content = new String((byte[]) sequence.getContent(), Charset.defaultCharset());
-                            ////to-do: remove sequence tag
-                            String extractedFileContent = content.replaceAll("<sequence[^>]*>", "")
-                                    .replaceAll("</sequence>", "");
-                            Document doc = builder.parse(new InputSource(new StringReader(content)));
-                            Element sequenceElement= (Element) doc.getElementsByTagNameNS("http://ws.apache.org/ns/synapse", "sequence").item(0);
-                            String policyName=sequenceElement.getAttribute("name");
-                        if (!existingPolicies.contains(policyName.concat("_v1"))) {
-                            log.info("----------------- This is the policy content:   " + extractedFileContent);
-                            OperationPolicyData policyData = generateOperationPolicyDataObject(tenant.getDomain(),policyName,extractedFileContent,flow);
-                            apiMgtDAO.addCommonOperationPolicy(policyData);
-                            log.info("*************************** Policy : "+ policyName +" Added to tenant domain " + tenant.getDomain()+"***************************");
-                        }else{
-                            log.info("A common policy with name "+ policyName.concat("_v1") + " exists." );
+                        Resource sequence = registry.get(childPath);
+                        DocumentBuilderFactory factory = APIUtil.getSecuredDocumentBuilder();
+                        DocumentBuilder builder = factory.newDocumentBuilder();
+                        String content = new String((byte[]) sequence.getContent(), Charset.defaultCharset());
+                        // remove xml declaration if present
+                        String regex = "^\\s*<\\?xml.*?\\?>";
+                        String extractedFileContent = content.replaceAll(regex, "").trim();
+                        // only the beginning and end sequence tags should get removed
+                        String seq_regex = "^<sequence[^>]*>(.*?)</sequence>$";
+                        Pattern pattern = Pattern.compile(seq_regex, Pattern.DOTALL);
+                        Matcher matcher = pattern.matcher(extractedFileContent);
+                        String FileContent = extractedFileContent;
+                        if (matcher.find()) {
+                            // Return the content inside the outer <sequence>...</sequence>
+                            FileContent = matcher.group(1).trim();
                         }
 
-                    }else{
-                        log.info("This common policy " + fileName +" is a default policy that already exists in 4.2.0. Hence skipping");
+                        Document doc = builder.parse(new InputSource(new StringReader(content)));
+                        Element sequenceElement = (Element) doc.getElementsByTagNameNS("http://ws.apache.org/ns/synapse", "sequence").item(0);
+                        String policyName = sequenceElement.getAttribute("name");
+                        if (!existingPolicies.contains(policyName.concat("_v1"))) {
+                            log.info("----------------- This is the policy content:   " + FileContent);
+                            OperationPolicyData policyData = generateOperationPolicyDataObject(tenant.getDomain(), policyName, FileContent, flow);
+                            apiMgtDAO.addCommonOperationPolicy(policyData);
+                            log.info("*************************** Policy : " + policyName + " Added to tenant domain " + tenant.getDomain() + "***************************");
+                        } else {
+                            log.info("A common policy with name " + policyName.concat("_v1") + " exists.");
+                        }
+
+                    } else {
+                        log.info("This common policy " + fileName + " is a default policy that already exists in 4.2.0. Hence skipping");
                     }
 
                 } catch (Exception e) {
@@ -182,13 +193,13 @@ public class APIMCommonPolicyMigrationClient implements ServerStartupObserver{
         policySpecification.setSupportedApiTypes(supportedAPIList);
 
         ArrayList<String> applicableFlows = new ArrayList<>();
-        if(flow=="in"){
+        if (flow.equals("in")) {
             applicableFlows.add(APIConstants.OPERATION_SEQUENCE_TYPE_REQUEST);
         }
         if (flow.equals("out")) {
             applicableFlows.add(APIConstants.OPERATION_SEQUENCE_TYPE_RESPONSE);
         }
-        if (flow.equals("fault")){
+        if (flow.equals("fault")) {
             applicableFlows.add(APIConstants.OPERATION_SEQUENCE_TYPE_FAULT);
         }
         policySpecification.setApplicableFlows(applicableFlows);
