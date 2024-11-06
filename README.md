@@ -1,45 +1,20 @@
-usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
-           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]
-           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
-           [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
-           [--super-prefix=<path>] [--config-env=<name>=<envvar>]
-           <command> [<args>]
+# Description
 
-These are common Git commands used in various situations:
+In APIM 3.2.0 adding common custom policies functionality was not available OOTB from the publisher UI.
 
-start a working area (see also: git help tutorial)
-   clone     Clone a repository into a new directory
-   init      Create an empty Git repository or reinitialize an existing one
+However since the common mediation policies were managed from the Registry, adding custom common policies through the registry(registry path /_system/governance/apimgt/customsequences/) is possible.
 
-work on the current change (see also: git help everyday)
-   add       Add file contents to the index
-   mv        Move or rename a file, a directory, or a symlink
-   restore   Restore working tree files
-   rm        Remove files from the working tree and from the index
+In 4.2.0 adding custom common policy support is available from the publisher UI and the policies are stored in AM_DB.
+When a user is migrating from 3.2.0 to 4.2.0 the custom common polices in registry is not getting added to 4.2.0 as common policies. 
 
-examine the history and state (see also: git help revisions)
-   bisect    Use binary search to find the commit that introduced a bug
-   diff      Show changes between commits, commit and working tree, etc
-   grep      Print lines matching a pattern
-   log       Show commit logs
-   show      Show various types of objects
-   status    Show the working tree status
+Hence, this client is designed to migrate registry common policies to AM_DB in 4.2.0 so that the policies will be available as common policies in 4.2.0.
 
-grow, mark and tweak your common history
-   branch    List, create, or delete branches
-   commit    Record changes to the repository
-   merge     Join two or more development histories together
-   rebase    Reapply commits on top of another base tip
-   reset     Reset current HEAD to the specified state
-   switch    Switch branches
-   tag       Create, list, delete or verify a tag object signed with GPG
+# Implementation Details
 
-collaborate (see also: git help workflows)
-   fetch     Download objects and refs from another repository
-   pull      Fetch from and integrate with another repository or a local branch
-   push      Update remote refs along with associated objects
+With the migration process the 3.2.0 registry data getting added to 4.2.0 and these custom common policies resides in 4.2.0 registry as well. So the client is impletemented to read regsitry policies from the path /_system/governance/apimgt/customsequences/ and store in AM_DB relavant databases.
 
-'git help -a' and 'git help -g' list available subcommands and some
-concept guides. See 'git help <command>' or 'git help <concept>'
-to read about a specific subcommand or concept.
-See 'git help git' for an overview of the system.
+# How to use
+
+1. Build the project using `mvn clean install`
+2. Add the bundle to `<APIM_HOME>/repository/components/dropins`
+3. Start the APIM using command `sh api-manager.sh -Dmigrate`
